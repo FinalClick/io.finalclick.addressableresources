@@ -12,7 +12,7 @@ namespace FinalClick.AddressableResources.Editor
         public void OnProcessScene(Scene scene, BuildReport report)
         {
             // Only inject into the first scene boot scene
-            if (SceneManager.GetSceneAt(0) != scene)
+            if (Application.isPlaying == false && SceneManager.GetSceneAt(0) != scene)
             {
                 return;
             }
