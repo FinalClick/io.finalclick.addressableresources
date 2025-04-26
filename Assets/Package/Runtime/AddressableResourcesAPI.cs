@@ -11,11 +11,27 @@ namespace FinalClick.AddressableResources
         private class AddressableResourcesInternalAPI : ResourcesAPI
         {
             private static Dictionary<string, AssetReference> _assetReferences;
+            private static Dictionary<UnityEngine.Object, int> _loadedRefCount = new Dictionary<UnityEngine.Object, int>();
             
             public AddressableResourcesInternalAPI(AddressableResourcesCollection collection)
             {
                 _assetReferences = collection.GetAsDictionary();
             }
+
+            protected override void UnloadAsset(Object assetToUnload)
+            {
+                if (IsLoadedByAddressableResources(assetToUnload) == false)
+                {
+                    base.UnloadAsset(assetToUnload);
+                    return;
+                }
+                
+                if (DecreaseReferenceToObject(assetToUnload) == true)
+                {
+                    Addressables.Release(assetToUnload);
+                }
+            }
+
 
             protected override Object Load(string path, Type systemTypeInstance)
             {
@@ -28,10 +44,56 @@ namespace FinalClick.AddressableResources
                         return assetReference.editorAsset;
                     }
 #endif
-                    return LoadAssetAsType(systemTypeInstance, assetReference);
+                    
+                    var loadedObject = LoadAssetAsType(systemTypeInstance, assetReference);
+                    if (loadedObject != null)
+                    {
+                        IncreaseReferenceToObject(loadedObject);
+                    }
                 }
                 
                 return base.Load(path, systemTypeInstance);
+            }
+
+            private void IncreaseReferenceToObject(Object loadedObject)
+            {
+                if (_loadedRefCount.TryGetValue(loadedObject, out var count) == false)
+                {
+                    _loadedRefCount.Add(loadedObject, 1);
+                    return;
+                }
+                
+                _loadedRefCount[loadedObject] = count + 1;
+            }
+
+            private bool IsLoadedByAddressableResources(Object loadedObject)
+            {
+                return _loadedRefCount.ContainsKey(loadedObject);
+            }
+            
+            /// <summary>
+            /// Decreases the reference count for a given object and performs cleanup if the reference count reaches zero.
+            /// </summary>
+            /// <param name="loadedObject">The object for which the reference count should be decreased.</param>
+            /// <returns>
+            /// Returns true if the reference count of the object reaches zero and it should be unloaded; otherwise, false.
+            /// </returns>
+            /// <exception cref="ArgumentException">Thrown if the object is not found in the reference count dictionary.</exception>
+            private bool DecreaseReferenceToObject(Object loadedObject)
+            {
+                if (_loadedRefCount.TryGetValue(loadedObject, out var count) == false)
+                {
+                    throw new ArgumentException("Object not found in reference count");
+                }
+
+                if (count == 1)
+                {
+                    _loadedRefCount.Remove(loadedObject);
+                    return true;
+                }
+
+                _loadedRefCount[loadedObject] = count - 1;
+                return false;
             }
 
             private static Object LoadAssetAsType(Type systemTypeInstance, AssetReference assetReference)
