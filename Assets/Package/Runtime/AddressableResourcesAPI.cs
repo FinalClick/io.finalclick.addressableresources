@@ -44,10 +44,7 @@ namespace FinalClick.AddressableResources
                 {
                     Debug.Log($"Loading resource: {path} with addressables.");
 #if UNITY_EDITOR
-                    if (Application.isPlaying == false)
-                    {
-                        return assetReference.editorAsset;
-                    }
+                    return assetReference.editorAsset;
 #endif
                     
                     var loadedObject = LoadAssetAsType(systemTypeInstance, assetReference);
