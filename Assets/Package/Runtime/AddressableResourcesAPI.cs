@@ -153,7 +153,7 @@ namespace FinalClick.AddressableResources
                 }
                 
                 assetReference.OperationHandle.WaitForCompletion();
-                _loadingHandles.Add((Object) assetReference.OperationHandle.Result, assetReference.OperationHandle);
+                _loadingHandles[(Object) assetReference.OperationHandle.Result] = assetReference.OperationHandle;
                 return assetReference.Asset;
             }
         }
