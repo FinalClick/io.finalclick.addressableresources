@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AddressableAssets;
+using UnityEngine.ResourceManagement.AsyncOperations;
 using Object = UnityEngine.Object;
 
 namespace FinalClick.AddressableResources
@@ -12,6 +13,7 @@ namespace FinalClick.AddressableResources
         {
             private static Dictionary<string, AssetReference> _assetReferences;
             private static Dictionary<UnityEngine.Object, int> _loadedRefCount = new Dictionary<UnityEngine.Object, int>();
+            private static Dictionary<UnityEngine.Object, AsyncOperationHandle> _loadingHandles = new Dictionary<UnityEngine.Object, AsyncOperationHandle>();
             
             public AddressableResourcesInternalAPI(AddressableResourcesCollection collection)
             {
@@ -28,7 +30,10 @@ namespace FinalClick.AddressableResources
                 
                 if (DecreaseReferenceToObject(assetToUnload) == true)
                 {
-                    Addressables.Release(assetToUnload);
+                    if (_loadingHandles.TryGetValue(assetToUnload, out var handle) == true)
+                    {
+                        Addressables.Release(handle);
+                    }
                 }
             }
 
@@ -98,51 +103,58 @@ namespace FinalClick.AddressableResources
 
             private static Object LoadAssetAsType(Type systemTypeInstance, AssetReference assetReference)
             {
-                Object result;
+                if (assetReference.OperationHandle.IsValid() == true)
+                {
+                    assetReference.OperationHandle.WaitForCompletion();
+                    return assetReference.Asset;
+                }
+                
                 switch (systemTypeInstance)
                 {
                     case Type t when t == typeof(GameObject):
-                        result = assetReference.LoadAssetAsync<GameObject>().WaitForCompletion();
-                        return result;
+                        assetReference.LoadAssetAsync<GameObject>();
+                        break;
                     case Type t when t == typeof(Texture2D):
-                        result = assetReference.LoadAssetAsync<Texture2D>().WaitForCompletion();
-                        return result;
+                        assetReference.LoadAssetAsync<Texture2D>();
+                        break;
                     case Type t when t == typeof(Sprite):
-                        result = assetReference.LoadAssetAsync<Sprite>().WaitForCompletion();
-                        return result;
+                        assetReference.LoadAssetAsync<Sprite>();
+                        break;
                     case Type t when t == typeof(Material):
-                        result = assetReference.LoadAssetAsync<Material>().WaitForCompletion();
-                        return result;
+                        assetReference.LoadAssetAsync<Material>();
+                        break;
                     case Type t when t == typeof(AudioClip):
-                        result = assetReference.LoadAssetAsync<AudioClip>().WaitForCompletion();
-                        return result;
+                        assetReference.LoadAssetAsync<AudioClip>();
+                        break;
                     case Type t when t == typeof(TMPro.TMP_FontAsset):
-                        result = assetReference.LoadAssetAsync<TMPro.TMP_FontAsset>().WaitForCompletion();
-                        return result;
+                        assetReference.LoadAssetAsync<TMPro.TMP_FontAsset>();
+                        break;
                     case Type t when t == typeof(TMPro.TMP_SpriteAsset):
-                        result = assetReference.LoadAssetAsync<TMPro.TMP_SpriteAsset>().WaitForCompletion();
-                        return result;
+                        assetReference.LoadAssetAsync<TMPro.TMP_SpriteAsset>();
+                        break;
                     case Type t when t == typeof(TMPro.TMP_StyleSheet):
-                        result = assetReference.LoadAssetAsync<TMPro.TMP_StyleSheet>().WaitForCompletion();
-                        return result;
+                        assetReference.LoadAssetAsync<TMPro.TMP_StyleSheet>();
+                        break;
                     case Type t when t == typeof(TMPro.TMP_Settings):
-                        result = assetReference.LoadAssetAsync<TMPro.TMP_Settings>().WaitForCompletion();
-                        return result;
+                        assetReference.LoadAssetAsync<TMPro.TMP_Settings>();
+                        break;
                     case Type t when t == typeof(TMPro.TextMeshProUGUI):
-                        result = assetReference.LoadAssetAsync<TMPro.TextMeshProUGUI>().WaitForCompletion();
-                        return result;
+                        assetReference.LoadAssetAsync<TMPro.TextMeshProUGUI>();
+                        break;
                     case Type t when t == typeof(TMPro.TextMeshPro):
-                        result = assetReference.LoadAssetAsync<TMPro.TextMeshPro>().WaitForCompletion();
-                        return result;
+                        assetReference.LoadAssetAsync<TMPro.TextMeshPro>();
+                        break;
                     default:
                         var method = typeof(AssetReference)
                             .GetMethod("LoadAssetAsync", Type.EmptyTypes)?
                             .MakeGenericMethod(systemTypeInstance ?? typeof(Object));
-                        var handle = method?.Invoke(assetReference, null);
-                        var resultProperty = handle?.GetType().GetProperty("Result");
-                        result = resultProperty?.GetValue(handle) as Object;
-                        return result;
+                        method?.Invoke(assetReference, null);
+                        break;
                 }
+                
+                assetReference.OperationHandle.WaitForCompletion();
+                _loadingHandles.Add((Object) assetReference.OperationHandle.Result, assetReference.OperationHandle);
+                return assetReference.Asset;
             }
         }
 
